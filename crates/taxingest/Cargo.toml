@@ -1,0 +1,17 @@
+[package]
+name = "taxingest"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The ingestion pipeline: documents in, reviewed ledger entries out. Bytes are stored content-addressed, agents read them, arithmetic decides what to believe."
+
+[dependencies]
+taxcore.workspace = true
+taxstore.workspace = true
+taxrules.workspace = true
+chrono.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile = "3"

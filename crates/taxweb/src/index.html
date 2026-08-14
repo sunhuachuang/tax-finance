@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tax Finance 面板</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 14px/1.5 -apple-system, "PingFang SC", sans-serif; max-width: 1100px;
+         margin: 0 auto; padding: 1rem 1.5rem 4rem; }
+  h1 { font-size: 1.3rem; } h2 { font-size: 1.05rem; margin: 2rem 0 .5rem; }
+  table { border-collapse: collapse; width: 100%; margin: .5rem 0; }
+  th, td { border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+           padding: .3rem .55rem; text-align: left; vertical-align: top; }
+  th { font-weight: 600; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .muted { opacity: .65; } .empty { opacity: .6; font-style: italic; margin: .4rem 0; }
+  .warn { color: #b45309; margin: .2rem 0; }
+  .pill { display: inline-block; padding: 0 .5em; border-radius: 1em; font-size: .85em;
+          border: 1px solid currentColor; }
+  button { padding: .15rem .7rem; margin-right: .35rem; cursor: pointer; }
+  .bar { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin: .4rem 0; }
+  input, select { padding: .2rem .4rem; }
+  #msg { position: fixed; top: .6rem; right: .8rem; padding: .3rem .8rem; border-radius: .4rem;
+         background: #16653480; color: white; display: none; }
+  #msg.error { background: #99202080; }
+  code { font-size: .85em; }
+</style>
+</head>
+<body>
+<h1>Tax Finance 面板 <span class="muted" style="font-size:.7em">本地 · 只读展示 + 人工确认</span></h1>
+<div id="msg"></div>
+
+<h2>待人工处理</h2>
+<div id="review"></div>
+
+<h2>GST 申报（GST101）</h2>
+<div class="bar">
+  期内任一日期 <input type="date" id="gst-date" value="2026-02-15">
+  频率 <select id="gst-freq">
+    <option value="">默认（两月）</option>
+    <option value="monthly">monthly</option>
+    <option value="two_monthly">two_monthly</option>
+    <option value="six_monthly">six_monthly</option>
+  </select>
+  <button onclick="loadGst()">计算</button>
+</div>
+<div id="gst"></div>
+
+<h2>IR3 年度汇总</h2>
+<div class="bar">
+  税年 <input id="ir3-year" value="2025-26" size="8">
+  <button onclick="loadIr3()">计算</button>
+</div>
+<div id="ir3"></div>
+
+<h2>银行对账</h2>
+<div id="bank"></div>
+
+<h2>文档</h2>
+<div id="docs"></div>
+
+<h2>已过账分录</h2>
+<div id="entries"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const money = m => m == null ? "—" : (m.cents / 100).toLocaleString("en-NZ", {minimumFractionDigits: 2}) + " " + m.currency;
+const short = id => `<code title="${esc(id)}">${esc(String(id).slice(0, 8))}…</code>`;
+
+function flash(text, isError) {
+  const el = $("msg");
+  el.textContent = text;
+  el.className = isError ? "error" : "";
+  el.style.display = "block";
+  setTimeout(() => el.style.display = "none", 3000);
+}
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error || res.statusText);
+  return body;
+}
+
+function table(headers, rows) {
+  if (!rows.length) return '<p class="empty">（空）</p>';
+  const numeric = headers.map(h => /金额|GST|余额/.test(h));
+  return `<table><tr>${headers.map((h, i) => `<th${numeric[i] ? ' class="num"' : ""}>${h}</th>`).join("")}</tr>` +
+    rows.map(r => `<tr>${r.map((c, i) => `<td${numeric[i] ? ' class="num"' : ""}>${c}</td>`).join("")}</tr>`).join("") +
+    "</table>";
+}
+
+const debitTotal = e => ({ cents: e.postings.filter(p => p.amount.cents > 0).reduce((s, p) => s + p.amount.cents, 0),
+                           currency: e.postings[0]?.amount.currency ?? "NZD" });
+const gstTotal = e => ({ cents: e.postings.reduce((s, p) => s + Math.abs(p.gst_amount?.cents ?? 0), 0),
+                         currency: e.postings[0]?.amount.currency ?? "NZD" });
+const postingsCell = e => e.postings.map(p =>
+  `${esc(p.account)} ${money(p.amount)}${p.gst_amount ? ` <span class="muted">(GST ${money(p.gst_amount)})</span>` : ""}`).join("<br>");
+
+async function act(id, action) {
+  try {
+    await api(`/api/entries/${id}/${action}`, { method: "POST" });
+    flash(action === "approve" ? "已批准入账" : "已作废");
+    loadOverview();
+  } catch (e) { flash(e.message, true); }
+}
+
+async function loadOverview() {
+  try {
+    const o = await api("/api/overview");
+    $("review").innerHTML =
+      "<h3 style='font-size:.95rem'>草稿分录（批准后才进报表）</h3>" +
+      table(["日期", "摘要", "来源", "借方金额", "GST", "操作"], o.review_drafts.map(e => [
+        e.date, esc(e.narration), esc(e.source.kind === "agent" ? `agent:${e.source.model}` : e.source.kind),
+        money(debitTotal(e)), money(gstTotal(e)),
+        `<button onclick="act('${e.id}','approve')">批准</button><button onclick="act('${e.id}','reject')">拒绝</button>`,
+      ])) +
+      "<h3 style='font-size:.95rem'>待复核文档</h3>" +
+      table(["ID", "文件", "来源", "收到时间"], o.review_documents.map(d => [
+        short(d.id), esc(d.original_filename ?? "—"), esc(d.source.kind), esc(d.received_at.slice(0, 10)),
+      ]));
+
+    $("docs").innerHTML = table(["ID", "状态", "文件", "MIME", "收到时间"], o.documents.map(d => [
+      short(d.id), `<span class="pill">${esc(d.status)}</span>`, esc(d.original_filename ?? "—"),
+      esc(d.mime), esc(d.received_at.slice(0, 10)),
+    ]));
+
+    $("entries").innerHTML = table(["日期", "摘要", "来源", "过账行", "GST"], o.posted_entries.map(e => [
+      e.date, esc(e.narration) + (e.reverses ? ` <span class="pill">冲销 ${short(e.reverses)}</span>` : ""),
+      esc(e.source.kind === "agent" ? `agent:${e.source.model}` : e.source.kind),
+      postingsCell(e), money(gstTotal(e)),
+    ]));
+
+    $("bank").innerHTML =
+      table(["日期", "账户", "描述", "金额"], o.unreconciled_bank.map(t => [
+        t.date, esc(t.account), esc(t.description), money(t.amount),
+      ])) +
+      "<h3 style='font-size:.95rem'>匹配候选（仅提议）</h3>" +
+      table(["强度", "银行流水", "文档", "相差天数", "理由"], o.match_candidates.map(m => [
+        `<span class="pill">${esc(m.strength)}</span>`, short(m.bank_txn), short(m.document),
+        m.day_gap, esc(m.reason),
+      ]));
+  } catch (e) { flash(e.message, true); }
+}
+
+async function loadGst() {
+  try {
+    const freq = $("gst-freq").value;
+    const g = await api(`/api/gst?date=${$("gst-date").value}${freq ? "&frequency=" + freq : ""}`);
+    $("gst").innerHTML =
+      `<p>期间 <b>${g.period.start} ~ ${g.period.end}</b> · 申报截止 <b>${g.due}</b> · ` +
+      `规则 ${esc(g.rules_year)} v${g.rules_version} · 逐票销项 ${money(g.formula_gst_on_sales)}（公式对照）</p>` +
+      g.warnings.map(w => `<p class="warn">⚠ ${esc(w)}</p>`).join("") +
+      table(["Box", "说明", "金额", "出处"], g.lines.map(l => [
+        esc(l.code.replace("gst101.", "")), esc(l.label), money(l.amount),
+        l.contributions.length ? l.contributions.map(c => `${esc(c.narration)} ${money(c.amount)}`).join("<br>") : '<span class="muted">—</span>',
+      ]));
+  } catch (e) { $("gst").innerHTML = `<p class="warn">⚠ ${esc(e.message)}</p>`; }
+}
+
+async function loadIr3() {
+  try {
+    const r = await api(`/api/ir3?year=${encodeURIComponent($("ir3-year").value)}`);
+    $("ir3").innerHTML =
+      `<p>税年 <b>${esc(r.year ? (r.year - 1) + "-" + String(r.year % 100).padStart(2, "0") : "")}</b> · 自行申报截止 <b>${r.self_filed_due}</b> · 规则 v${r.rules_version}</p>` +
+      table(["项目", "金额", "出处"], r.lines.map(l => [
+        esc(l.label), money(l.amount),
+        l.contributions.length ? l.contributions.map(c => `${esc(c.narration)} ${money(c.amount)}`).join("<br>") : '<span class="muted">—</span>',
+      ])) +
+      "<h3 style='font-size:.95rem'>税额（逐档）</h3>" +
+      table(["档", "税率", "本档应税", "税额"], r.tax.bands.map(b => [
+        `${money(b.floor)} ~ ${b.ceiling ? money(b.ceiling) : "∞"}`,
+        `${b.rate.numerator}/${b.rate.denominator}`, money(b.taxable_in_band), money(b.tax),
+      ])) +
+      `<p><b>合计 ${money(r.tax.total)}</b></p>` +
+      r.notes.map(n => `<p class="warn">⚠ ${esc(n)}</p>`).join("");
+  } catch (e) { $("ir3").innerHTML = `<p class="warn">⚠ ${esc(e.message)}</p>`; }
+}
+
+loadOverview(); loadGst(); loadIr3();
+</script>
+</body>
+</html>

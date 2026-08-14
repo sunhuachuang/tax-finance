@@ -1,6 +1,14 @@
 [workspace]
 resolver = "3"
-members = ["crates/taxcore"]
+members = [
+    "crates/taxcore",
+    "crates/taxrules",
+    "crates/taxstore",
+    "crates/taxingest",
+    "crates/taxreturn",
+    "crates/taxmcp",
+    "crates/taxweb",
+]
 
 [workspace.package]
 version = "0.0.1"
@@ -11,6 +19,8 @@ license = "MIT"
 taxcore = { path = "crates/taxcore" }
 taxstore = { path = "crates/taxstore" }
 taxrules = { path = "crates/taxrules" }
+taxingest = { path = "crates/taxingest" }
+taxreturn = { path = "crates/taxreturn" }
 
 anyhow = "1"
 thiserror = "2"

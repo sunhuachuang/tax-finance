@@ -74,6 +74,9 @@ pub enum EntryStatus {
     /// Proposed but not part of any return yet. The review queue works here.
     Draft,
     Posted,
+    /// Rejected in review, never posted. Kept because the proposal itself is
+    /// part of history — deleting it would hide what the agent suggested.
+    Voided,
     /// Superseded by a reversing entry. The original row is never mutated.
     Reversed,
 }
