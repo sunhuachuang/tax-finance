@@ -41,7 +41,7 @@ pub struct MonthDay {
 impl MonthDay {
     pub fn date_in(&self, year: TaxYear) -> NaiveDate {
         NaiveDate::from_ymd_opt(year.0 + self.year_offset, self.month, self.day)
-            .expect("validated: day is at most 28")
+            .expect("validated: day exists in this month in every year")
     }
 }
 
@@ -160,7 +160,15 @@ impl IncomeTaxRules {
             }
         }
         for month_day in [self.return_due.self_filed, self.return_due.with_tax_agent] {
-            if !(1..=12).contains(&month_day.month) || !(1..=28).contains(&month_day.day) {
+            // The month is fixed, so the day only has to exist in that month —
+            // except February, capped at 28 so the date exists in every year.
+            let max_day = match month_day.month {
+                1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+                4 | 6 | 9 | 11 => 30,
+                2 => 28,
+                _ => return Err(invalid("income_tax.return_due has an impossible date")),
+            };
+            if !(1..=max_day).contains(&month_day.day) {
                 return Err(invalid("income_tax.return_due has an impossible date"));
             }
         }

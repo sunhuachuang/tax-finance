@@ -47,7 +47,7 @@ fn main() -> anyhow::Result<()> {
         rules_dir,
     };
 
-    let addr = format!("0.0.0.0:{}", opts.port);
+    let addr = format!("127.0.0.1:{}", opts.port);
     let listener = TcpListener::bind(&addr).with_context(|| format!("binding {addr}"))?;
     eprintln!("taxweb: open http://{addr}/  (data: {})", data_dir.display());
 
