@@ -1,28 +1,35 @@
-# New Zealand tax rules for the 2025-26 year (1 April 2025 - 31 March 2026).
+# New Zealand tax rules for the 2026-27 year (1 April 2026 - 31 March 2027).
 #
 # Rules are data, not code. A Budget that changes a rate adds a new file here;
 # it never edits an existing one, because a return already filed under these
 # figures must recompute to the same numbers years later.
 #
 # Rates are exact rationals. 10.5% is 105/1000, never 0.105.
+#
+# Budget 2026 left the personal thresholds and the GST rate alone, so the core
+# figures below are identical to 2025-26. That is a verified fact about this
+# year, not a copy: the file exists so that a later change to either year can
+# be made without touching the other.
+#
+# One thing this file CANNOT be complete about. IRD publishes the kilometre
+# rates and the square metre rate *after* an income year ends — the figures for
+# 1 April 2026 - 31 March 2027 are not determined until around mid-2027. The
+# deduction rates below are therefore the last published ones, carried forward
+# and flagged. Nothing computes with them today (IR3 does not apply statutory
+# deduction adjustments yet), so this is a documentation gap rather than a
+# wrong number in a return — but it must be closed before it becomes one.
 
 meta:
   jurisdiction: NZ
-  tax_year: "2025-26"
+  tax_year: "2026-27"
   # Bump when this file is corrected. Recorded on every computed return.
-  #
-  # v2 (2026-08-17): deduction rates corrected against IRD's published
-  # determinations. The square metre rate was 61.15, IRD's figure for this year
-  # is 57.30. The kilometre rates were a single merged petrol_or_diesel entry at
-  # rates that matched no published year; IRD publishes petrol and diesel
-  # separately and they differ by 10c on tier one. Nothing had been filed under
-  # v1, so this is a correction rather than a new year.
-  version: 2
+  version: 1
   verified_on: 2026-08-17
   sources:
     - https://www.ird.govt.nz/income-tax/income-tax-for-individuals/tax-codes-and-tax-rates-for-individuals/tax-rates-for-individuals
     - https://www.ird.govt.nz/gst
     - https://www.ird.govt.nz/income-tax/provisional-tax
+    # Deduction rates below are the 2025-26 determinations, carried forward.
     - https://www.ird.govt.nz/income-tax/income-tax-for-businesses-and-organisations/types-of-business-expenses/claiming-vehicle-expenses/kilometre-rates-2025-2026
     - https://www.ird.govt.nz/updates/news-folder/2026/square-metre-rate-for-home-office-calculations-2026
 
@@ -67,6 +74,8 @@ gst:
 
 income_tax:
   # Applied progressively; there is no tax-free threshold in New Zealand.
+  # Thresholds unchanged since the composite rates took full effect on
+  # 1 April 2025; they are not indexed to inflation.
   brackets:
     - up_to_nzd: 15600
       rate: { numerator: 105, denominator: 1000 }
@@ -96,25 +105,27 @@ provisional_tax:
 
 deductions:
   # Entertainment is half deductible unless it falls in a statutory exception
-  # (e.g. entertainment enjoyed while travelling on business).
+  # (e.g. entertainment enjoyed while travelling on business). This one is in
+  # the Income Tax Act, not an annually published rate, so it is firm.
   entertainment:
     deductible: { numerator: 50, denominator: 100 }
 
   home_office:
     # Either a measured floor-area proportion of actual premises costs, or the
-    # square-metre rate. Both are supported; the rate is published annually,
-    # after the income year ends, as a CPI adjustment to OS 19/03.
+    # square-metre rate.
     method: floor_area_or_square_metre_rate
     square_metre_rate_nzd: 57.30
     square_metre_rate_note: >-
-      IRD's published rate for the 2026 income year (1 April 2025 - 31 March
-      2026). Covers utilities only. Mortgage interest, rates and rent are
-      claimed separately on the business-use proportion of floor area.
+      NOT YET DETERMINED FOR THIS YEAR. 57.30 is IRD's rate for the 2026 income
+      year (1 April 2025 - 31 March 2026), carried forward as a placeholder.
+      The 2027-income-year rate is set by a CPI adjustment to OS 19/03 published
+      after 31 March 2027 and will differ. Covers utilities only — mortgage
+      interest, rates and rent are claimed separately on the business-use
+      proportion of floor area.
 
   motor_vehicle:
-    # IRD kilometre rates, published each year after the income year ends.
-    # Tier 1 covers the first 14,000 km of total annual travel, tier 2 every
-    # kilometre after that.
+    # IRD kilometre rates, published each year. Tier 1 covers the first 14,000 km
+    # of total annual travel, tier 2 every kilometre after that.
     method: kilometre_rate_or_actual_costs
     tier_one_limit_km: 14000
     # Petrol and diesel are separate rates in IRD's table; do not merge them.
@@ -124,8 +135,11 @@ deductions:
       petrol_hybrid: { tier_one: 0.90, tier_two: 0.24 }
       electric: { tier_one: 1.22, tier_two: 0.23 }
     note: >-
-      IRD's published rates for the 2025-26 income year.
-    needs_verification: false
+      NOT YET DETERMINED FOR THIS YEAR. These are IRD's rates for the 2025-26
+      income year, carried forward as a placeholder. The 2026-27 rates are set
+      by an operational statement published after 31 March 2027 and will differ.
+      Do not rely on these for a claim.
+    needs_verification: true
 
 # Treatments that are commonly misapplied. Used to seed account defaults and to
 # warn during review; never to decide silently.

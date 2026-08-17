@@ -195,9 +195,38 @@ mod tests {
     #[test]
     fn the_shipped_nz_file_loads_and_validates() {
         let rules = RuleSet::for_year(&rules_dir(), "NZ", TaxYear(2026)).unwrap();
-        assert_eq!(rules.meta.version, 1);
+        // Not a specific number: a correction bumps the version, and that must
+        // not look like a broken test.
+        assert!(rules.meta.version >= 1);
         assert_eq!(rules.gst_rate(), GstRate::new(15, 100));
         assert!(!rules.gst_treatment_hints.is_empty());
+    }
+
+    /// Every file that ships must load, not just the one a test names. A year
+    /// added without this check is only discovered when someone tries to file
+    /// under it — the failure mode is a return you cannot produce, in the week
+    /// it is due.
+    #[test]
+    fn every_shipped_rule_file_loads_and_agrees_about_its_own_year() {
+        let dir = rules_dir().join("nz");
+        let mut checked = 0;
+        for entry in fs::read_dir(&dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.extension().and_then(|e| e.to_str()) != Some("yaml") {
+                continue;
+            }
+            let stem = path.file_stem().unwrap().to_str().unwrap();
+            let year: TaxYear = stem
+                .parse()
+                .unwrap_or_else(|e| panic!("{} is not named after a tax year: {e}", path.display()));
+
+            // `for_year` rebuilds the path from the year, so this also checks
+            // that the file's own `meta.tax_year` matches its filename.
+            RuleSet::for_year(&rules_dir(), "NZ", year)
+                .unwrap_or_else(|e| panic!("{} does not load: {e}", path.display()));
+            checked += 1;
+        }
+        assert!(checked >= 2, "expected several rule files, checked {checked}");
     }
 
     #[test]

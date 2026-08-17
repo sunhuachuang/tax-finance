@@ -159,34 +159,48 @@ mod tests {
     #[test]
     fn the_square_metre_rate_reads_to_the_cent() {
         let deductions = &rules().deductions;
-        assert_eq!(deductions.home_office.square_metre_rate(), Money::nzd(6_115));
+        assert_eq!(deductions.home_office.square_metre_rate(), Money::nzd(5_730));
         assert_eq!(
             deductions.home_office.square_metre_claim(10).unwrap(),
-            Money::nzd(61_150)
+            Money::nzd(57_300)
         );
     }
 
     #[test]
     fn kilometre_claim_splits_across_the_tiers() {
-        // 20,000 km petrol: 14,000 @ 1.17 + 6,000 @ 0.37 = 16,380 + 2,220 = 18,600.
+        // 20,000 km petrol: 14,000 @ 1.20 + 6,000 @ 0.37 = 16,800 + 2,220 = 19,020.
         // At 100% business use.
         let claim = rules()
             .deductions
             .motor_vehicle
-            .kilometre_claim("petrol_or_diesel", 20_000, Ratio { numerator: 1, denominator: 1 })
+            .kilometre_claim("petrol", 20_000, Ratio { numerator: 1, denominator: 1 })
             .unwrap();
-        assert_eq!(claim, Money::nzd(1_860_000));
+        assert_eq!(claim, Money::nzd(1_902_000));
     }
 
     #[test]
     fn kilometre_claim_applies_the_business_share_last() {
-        // Same travel at 25% business use: 18,600 / 4 = 4,650.
+        // Same travel at 25% business use: 19,020 / 4 = 4,755.
         let claim = rules()
             .deductions
             .motor_vehicle
-            .kilometre_claim("petrol_or_diesel", 20_000, Ratio { numerator: 1, denominator: 4 })
+            .kilometre_claim("petrol", 20_000, Ratio { numerator: 1, denominator: 4 })
             .unwrap();
-        assert_eq!(claim, Money::nzd(465_000));
+        assert_eq!(claim, Money::nzd(475_500));
+    }
+
+    /// IRD publishes petrol and diesel as separate rates. They were once merged
+    /// into one `petrol_or_diesel` entry here, which silently understated every
+    /// diesel claim by 10c a kilometre on tier one.
+    #[test]
+    fn petrol_and_diesel_are_not_the_same_rate() {
+        let rules = rules();
+        let vehicle = &rules.deductions.motor_vehicle;
+        let one = Ratio { numerator: 1, denominator: 1 };
+        let petrol = vehicle.kilometre_claim("petrol", 1_000, one).unwrap();
+        let diesel = vehicle.kilometre_claim("diesel", 1_000, one).unwrap();
+        assert_ne!(petrol, diesel);
+        assert!(vehicle.kilometre_claim("petrol_or_diesel", 1_000, one).is_err());
     }
 
     #[test]

@@ -44,6 +44,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut ctx = Ctx {
         store,
+        data_dir: data_dir.clone(),
         rules_dir,
     };
 

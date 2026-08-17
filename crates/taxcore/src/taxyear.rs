@@ -137,8 +137,12 @@ impl GstFrequency {
         let months_from_anchor = (date.year() * 12 + date.month() as i32 - 1)
             - (date.year() * 12 + self.anchor_end_month as i32 - 1);
         let step = self.months_per_period as i32;
-        // Number of whole periods between the anchor month and this month.
-        let offset = months_from_anchor.div_euclid(step);
+        // Periods are identified by the month they *end* in, so this must round
+        // up: we want the first period end at or after this month. Rounding
+        // down lands on the previous period — February would report the
+        // December–January return, and `periods_overlapping` would spin forever
+        // because stepping past the end of a period returned that same period.
+        let offset = (months_from_anchor + step - 1).div_euclid(step);
         let end_month_index =
             (date.year() * 12 + self.anchor_end_month as i32 - 1) + offset * step;
         let end = last_day_of(month_index_to_ym(end_month_index));

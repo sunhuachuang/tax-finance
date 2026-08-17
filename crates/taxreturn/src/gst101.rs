@@ -246,6 +246,38 @@ mod tests {
         assert_eq!(box11.contributions.len(), 3);
     }
 
+    /// The cardinal rule: a return already filed must recompute to the same
+    /// numbers years later. Correcting a mistake in a later period is normal —
+    /// it must land in the period the correction was made, and leave the
+    /// earlier return exactly where it was.
+    #[test]
+    fn a_later_reversal_does_not_rewrite_an_already_filed_period() {
+        let mut store = store_with_chart();
+        let wrong = post_purchase(&mut store, d(2025, 4, 5), 11500, 1500);
+
+        let april_may = may_2025_period();
+        let filed = gst101(&store, &rules(), april_may).unwrap();
+        assert_eq!(filed.line("gst101.box11").unwrap().amount, Money::nzd(11500));
+
+        // Noticed two months later and reversed then, not backdated.
+        store
+            .reverse_entry(wrong, d(2025, 7, 10), EntrySource::Human, None)
+            .unwrap();
+
+        let refiled = gst101(&store, &rules(), april_may).unwrap();
+        assert_eq!(
+            refiled.line("gst101.box11").unwrap().amount,
+            filed.line("gst101.box11").unwrap().amount,
+            "reversing in July must not move the April-May figures"
+        );
+
+        // The correction shows up in the period it was actually made.
+        let june_july = GstFrequency::two_monthly_ending_march().period_containing(d(2025, 7, 10));
+        let later = gst101(&store, &rules(), june_july).unwrap();
+        assert_eq!(later.line("gst101.box11").unwrap().amount, Money::nzd(-11500));
+        assert_eq!(later.line("gst101.box11").unwrap().contributions.len(), 1);
+    }
+
     #[test]
     fn periods_outside_the_rule_file_are_refused() {
         let store = store_with_chart();

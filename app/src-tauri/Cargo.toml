@@ -1,0 +1,42 @@
+[package]
+name = "financeapp"
+version = "0.0.1"
+description = "Finance —— 桌面与移动客户端。Tauri shell，直接 link 报税引擎的库 crates。"
+edition = "2024"
+license = "MIT"
+
+# 独立 workspace：`service/` 是另一个仓库，不把 app 挂进它的 workspace。
+[workspace]
+
+[lib]
+# `_lib` 后缀是 Tauri 的约定，避免 Windows 上 lib 与 bin 同名冲突。
+name = "financeapp_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+# 原生文件选择器。上传发票要么从这里来，要么从窗口拖进来。
+tauri-plugin-dialog = "2"
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+
+# Claude API。Rust 没有官方 Anthropic SDK，走原生 HTTP；
+# 这条链路要 TLS，所以不能沿用 remote.rs 那个手写的明文客户端。
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
+tokio = { version = "1", features = ["sync", "time"] }
+futures-util = "0.3"
+
+# 报税引擎。app 是这些库的第三个消费者（另两个是 taxweb 和 taxmcp）——
+# 不走 HTTP、不开端口、同进程直调。
+taxcore = { path = "../../service/crates/taxcore" }
+taxstore = { path = "../../service/crates/taxstore" }
+taxrules = { path = "../../service/crates/taxrules" }
+taxingest = { path = "../../service/crates/taxingest" }
+taxreturn = { path = "../../service/crates/taxreturn" }

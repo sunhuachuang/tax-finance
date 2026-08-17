@@ -64,10 +64,21 @@ impl Store {
     /// What return generation reads: the posted ledger over a period, both
     /// bounds inclusive. Reversed entries are excluded — their effect is
     /// represented by the reversal pair having been posted.
+    /// Everything that is part of a return over this range.
+    ///
+    /// `reversed` belongs here alongside `posted`. A reversed entry really was
+    /// posted; what cancels it is its reversing entry, which is itself a
+    /// `posted` row on the date the correction was made. Dropping the original
+    /// while keeping the reversal would subtract a figure that was never added
+    /// — and worse, would silently change a return that has already been filed
+    /// the moment someone corrects a later mistake. The pair nets to zero on
+    /// its own, which is exactly what `taxreturn::scan` assumes.
+    ///
+    /// `draft` and `voided` stay out: neither was ever part of a return.
     pub fn posted_entries_between(&self, from: NaiveDate, to: NaiveDate) -> Result<Vec<Entry>> {
         self.collect_entries(
             "SELECT id, date, narration, status, source, created_at, reverses
-             FROM entries WHERE status = 'posted' AND date >= ?1 AND date <= ?2
+             FROM entries WHERE status IN ('posted', 'reversed') AND date >= ?1 AND date <= ?2
              ORDER BY date, id",
             [from.to_string(), to.to_string()],
         )

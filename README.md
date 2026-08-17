@@ -83,8 +83,21 @@ cargo run --release -p taxweb -- --port 5710 --data-dir ~/.taxdata --rules-dir .
 | `/api/entries/` | GET | 分录列表 |
 | `/api/gst` | GET | GST return 数据 |
 | `/api/ir3` | GET | IR3 汇总 |
+| `/api/documents?filename=…` | POST | 收一份文档：文件原样作请求体，mime 放 `Content-Type`。只造 pending |
 | `/api/entries/{id}/approve` | POST | **人工确认闸口**：批准草稿分录 |
 | `/api/entries/{id}/reject` | POST | 拒绝草稿（作废不删） |
+
+`/api/documents` 存在是为了让 app 的**远程模式**（手机）把收据发到这台 host 上的
+唯一一份账本，而不是在手机本地留第二份。刻意不用 multipart——一次一个文件不需要解析器：
+
+```bash
+curl -X POST --data-binary @INV-8842.pdf \
+  -H 'Content-Type: application/pdf' \
+  'http://127.0.0.1:5710/api/documents?filename=INV-8842.pdf'
+```
+
+文件名走 query string，所以要百分号编码（空格、中文都行）。和 MCP 的
+`ingest_document` 同一层级：只创建 `PendingExtraction` 文档，不产生任何账。
 
 前台进程，`Ctrl-C` 停止。没有守护化——需要常驻时用 launchd/systemd 包一层，或等接入 crabup 服务管理。
 
