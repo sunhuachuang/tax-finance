@@ -35,8 +35,8 @@ futures-util = "0.3"
 
 # 报税引擎。app 是这些库的第三个消费者（另两个是 taxweb 和 taxmcp）——
 # 不走 HTTP、不开端口、同进程直调。
-taxcore = { path = "../../service/crates/taxcore" }
-taxstore = { path = "../../service/crates/taxstore" }
-taxrules = { path = "../../service/crates/taxrules" }
-taxingest = { path = "../../service/crates/taxingest" }
-taxreturn = { path = "../../service/crates/taxreturn" }
+taxcore = { path = "../../crates/taxcore" }
+taxstore = { path = "../../crates/taxstore" }
+taxrules = { path = "../../crates/taxrules" }
+taxingest = { path = "../../crates/taxingest" }
+taxreturn = { path = "../../crates/taxreturn" }
